@@ -108,21 +108,21 @@ echo     49. Enable Search Indexing               57. Restart Print Spooler
 echo     50. Disable Hibernation                  58. Fix Start Menu
 echo     51. Enable Hibernation                   59. Repair Windows Store
 echo.
-echo    [LAUNCHERS]                              [SYSTEM INFO]
+echo    [ADVANCED TOOLS]                         [SYSTEM INFO]
 echo    ------------------------------------     ------------------------------------
-echo     60. Device Manager                       66. Show System Information
-echo     61. Control Panel                        67. Show Installed Programs
-echo     62. Services                             68. Show Running Processes
-echo     63. Task Manager                         69. Show Disk Usage
-echo     64. Registry Editor                      70. Show Startup Programs
-echo     65. Windows Terminal                     71. Export Full System Report
+echo     60. Windows Auto Repair Suite            66. Show System Information
+echo     61. One Click PC Tune Up                 67. Show Installed Programs
+echo     62. Network Doctor                       68. Show Running Processes
+echo     63. Startup Bloat Manager                69. Show Disk Usage
+echo     64. Basic Windows Hardening              70. Show Startup Programs
+echo     65. Defender Control Panel               71. Export Full System Report
 echo.
-echo    [NEW FEATURES v3.0]
+echo    [SECURITY ^& MORE]
 echo    ------------------------------------
-echo     80. STARTUP APPS NUKER                   84. EXTENDED CLEANING
-echo     81. INTERACTIVE DEBLOATER                85. APPX BLOAT CONTROL
-echo     82. DISABLE ADS ^& SUGGESTIONS           86. SERVICE MANAGER
-echo     83. PRIVACY TWEAKS                       87. CHECK FOR UPDATES
+echo     72. User Account Auditor                 76. EXTENDED CLEANING
+echo     73. Windows Feature Toggle               77. APPX BLOAT CONTROL
+echo     74. STARTUP APPS NUKER                   78. SERVICE MANAGER
+echo     75. INTERACTIVE DEBLOATER                79. DISABLE ADS ^& SUGGESTIONS
 echo.
 echo    ___________________________________________________________________________
 echo   ^|                                                                           ^|
@@ -197,26 +197,26 @@ if "%choice%"=="56" goto RESTART_AUDIO
 if "%choice%"=="57" goto RESTART_PRINT
 if "%choice%"=="58" goto FIX_STARTMENU
 if "%choice%"=="59" goto REPAIR_STORE
-if "%choice%"=="60" goto DEVICE_MANAGER
-if "%choice%"=="61" goto CONTROL_PANEL
-if "%choice%"=="62" goto SERVICES
-if "%choice%"=="63" goto TASK_MANAGER
-if "%choice%"=="64" goto REGEDIT
-if "%choice%"=="65" goto TERMINAL
+if "%choice%"=="60" goto AUTO_REPAIR_SUITE
+if "%choice%"=="61" goto ONE_CLICK_TUNEUP
+if "%choice%"=="62" goto NETWORK_DOCTOR
+if "%choice%"=="63" goto STARTUP_BLOAT_MANAGER
+if "%choice%"=="64" goto WINDOWS_HARDENING
+if "%choice%"=="65" goto DEFENDER_CONTROL
 if "%choice%"=="66" goto SYSTEM_INFO
 if "%choice%"=="67" goto INSTALLED_PROGRAMS
 if "%choice%"=="68" goto RUNNING_PROCESSES
 if "%choice%"=="69" goto DISK_USAGE
 if "%choice%"=="70" goto STARTUP_PROGRAMS
 if "%choice%"=="71" goto EXPORT_REPORT
-if "%choice%"=="80" goto STARTUP_NUKER
-if "%choice%"=="81" goto INTERACTIVE_DEBLOATER
-if "%choice%"=="82" goto DISABLE_ADS
-if "%choice%"=="83" goto PRIVACY_TWEAKS
-if "%choice%"=="84" goto EXTENDED_CLEANING
-if "%choice%"=="85" goto APPX_CONTROL
-if "%choice%"=="86" goto SERVICE_MANAGER
-if "%choice%"=="87" goto MANUAL_UPDATE_CHECK
+if "%choice%"=="72" goto USER_ACCOUNT_AUDITOR
+if "%choice%"=="73" goto WINDOWS_FEATURE_TOGGLE
+if "%choice%"=="74" goto STARTUP_NUKER
+if "%choice%"=="75" goto INTERACTIVE_DEBLOATER
+if "%choice%"=="76" goto EXTENDED_CLEANING
+if "%choice%"=="77" goto APPX_CONTROL
+if "%choice%"=="78" goto SERVICE_MANAGER
+if "%choice%"=="79" goto DISABLE_ADS
 if "%choice%"=="99" goto RUN_ALL_SAFE
 
 echo.
@@ -225,62 +225,849 @@ timeout /t 2 >nul
 goto MENU
 
 :: ============================================================================
-:: SELF-UPDATE SYSTEM
+:: SELF-UPDATE SYSTEM (FIXED)
 :: ============================================================================
 
 :CHECK_UPDATE
 set "TEMP_BAT=%TEMP%\SychicToolkit_temp.bat"
+
+:: Download the remote file
 powershell -Command "(New-Object Net.WebClient).DownloadFile('%GITHUB_RAW%', '%TEMP_BAT%')" >nul 2>&1
 if not exist "%TEMP_BAT%" exit /b
 
-for /f "tokens=1,* delims==" %%a in ('findstr /B "set VERSION=" "%TEMP_BAT%"') do (
-    set "REMOTE_VER=%%b"
+:: Extract remote version - fixed parsing
+set "REMOTE_VER="
+for /f "tokens=*" %%a in ('findstr /B /C:"set VERSION=" "%TEMP_BAT%" 2^>nul') do (
+    set "line=%%a"
 )
+if defined line (
+    for /f "tokens=2 delims==" %%b in ("!line!") do set "REMOTE_VER=%%b"
+)
+
+:: Remove any spaces
 set "REMOTE_VER=!REMOTE_VER: =!"
+set "LOCAL_VER=%VERSION%"
 
-if "!VERSION!" NEQ "!REMOTE_VER!" (
-    cls
-    echo.
-    echo    ___________________________________________________________________________
-    echo   ^|                                                                           ^|
-    echo   ^|   UPDATE AVAILABLE                                                        ^|
-    echo   ^|___________________________________________________________________________^|
-    echo.
-    echo    New version detected on GitHub!
-    echo.
-    echo    Current version: %VERSION%
-    echo    Latest version:  !REMOTE_VER!
-    echo.
-    set /p updatechoice="   Update now? (Y/N): "
-    if /i "!updatechoice!"=="Y" (
-        echo.
-        echo    [*] Updating...
-        copy /Y "%TEMP_BAT%" "%SCRIPT_PATH%" >nul
-        echo    [+] Update complete! Relaunching...
-        del "%TEMP_BAT%" >nul 2>&1
-        start "" "%SCRIPT_PATH%"
-        exit
-    )
+:: Skip update if versions match OR if remote version is empty/invalid
+if "!REMOTE_VER!"=="" (
+    del "%TEMP_BAT%" >nul 2>&1
+    exit /b
 )
-del "%TEMP_BAT%" >nul 2>&1
-exit /b
 
-:MANUAL_UPDATE_CHECK
+if "!LOCAL_VER!"=="!REMOTE_VER!" (
+    del "%TEMP_BAT%" >nul 2>&1
+    exit /b
+)
+
+:: Only prompt if versions are actually different
 cls
 echo.
 echo    ___________________________________________________________________________
 echo   ^|                                                                           ^|
-echo   ^|   CHECK FOR UPDATES                                                       ^|
+echo   ^|   UPDATE AVAILABLE                                                        ^|
 echo   ^|___________________________________________________________________________^|
 echo.
+echo    New version detected on GitHub!
+echo.
 echo    Current version: %VERSION%
-echo    [*] Checking for updates...
-call :CHECK_UPDATE
+echo    Latest version:  !REMOTE_VER!
 echo.
-echo    [+] You have the latest version!
+set /p updatechoice="   Update now? (Y/N): "
+if /i "!updatechoice!"=="Y" (
+    echo.
+    echo    [*] Updating...
+    copy /Y "%TEMP_BAT%" "%SCRIPT_PATH%" >nul
+    echo    [+] Update complete! Relaunching...
+    del "%TEMP_BAT%" >nul 2>&1
+    start "" "%SCRIPT_PATH%"
+    exit
+)
+del "%TEMP_BAT%" >nul 2>&1
+exit /b
+
+:: ============================================================================
+:: WINDOWS AUTO REPAIR SUITE (NEW)
+:: ============================================================================
+
+:AUTO_REPAIR_SUITE
+cls
 echo.
+echo    ___________________________________________________________________________
+echo   ^|                                                                           ^|
+echo   ^|   WINDOWS AUTO REPAIR SUITE                                               ^|
+echo   ^|___________________________________________________________________________^|
+echo.
+echo    This will run a complete system repair:
+echo     - System File Checker (SFC)
+echo     - DISM Restore Health
+echo     - Reset Windows Update
+echo     - Restart Critical Services
+echo     - Check Disk
+echo     - Generate Status Report
+echo.
+set /p confirm="   Proceed with full repair? (Y/N): "
+if /i "%confirm%" NEQ "Y" goto MENU
+
+set "REPAIR_LOG=%BACKUP_DIR%\repair_log_%DATE:~-4%%DATE:~-10,2%%DATE:~-7,2%_%TIME:~0,2%%TIME:~3,2%.txt"
+set "REPAIR_LOG=!REPAIR_LOG: =0!"
+
+echo.
+echo    ============================================ > "!REPAIR_LOG!"
+echo    WINDOWS AUTO REPAIR SUITE - LOG >> "!REPAIR_LOG!"
+echo    Date: %DATE% %TIME% >> "!REPAIR_LOG!"
+echo    ============================================ >> "!REPAIR_LOG!"
+echo.
+
+echo    [1/6] Running System File Checker (SFC)...
+echo. >> "!REPAIR_LOG!"
+echo    === SFC SCAN === >> "!REPAIR_LOG!"
+sfc /scannow >> "!REPAIR_LOG!" 2>&1
+echo    [+] SFC complete.
+
+echo    [2/6] Running DISM RestoreHealth...
+echo. >> "!REPAIR_LOG!"
+echo    === DISM RESTORE HEALTH === >> "!REPAIR_LOG!"
+DISM /Online /Cleanup-Image /RestoreHealth >> "!REPAIR_LOG!" 2>&1
+echo    [+] DISM complete.
+
+echo    [3/6] Resetting Windows Update...
+echo. >> "!REPAIR_LOG!"
+echo    === WINDOWS UPDATE RESET === >> "!REPAIR_LOG!"
+net stop wuauserv >> "!REPAIR_LOG!" 2>&1
+net stop bits >> "!REPAIR_LOG!" 2>&1
+net stop cryptSvc >> "!REPAIR_LOG!" 2>&1
+rd /s /q "%WINDIR%\SoftwareDistribution\Download" >nul 2>&1
+mkdir "%WINDIR%\SoftwareDistribution\Download" >nul 2>&1
+net start cryptSvc >> "!REPAIR_LOG!" 2>&1
+net start wuauserv >> "!REPAIR_LOG!" 2>&1
+net start bits >> "!REPAIR_LOG!" 2>&1
+echo    Windows Update components reset. >> "!REPAIR_LOG!"
+echo    [+] Windows Update reset complete.
+
+echo    [4/6] Restarting Critical Services...
+echo. >> "!REPAIR_LOG!"
+echo    === CRITICAL SERVICES RESTART === >> "!REPAIR_LOG!"
+net stop Spooler >nul 2>&1
+net start Spooler >> "!REPAIR_LOG!" 2>&1
+net stop Audiosrv >nul 2>&1
+net start Audiosrv >> "!REPAIR_LOG!" 2>&1
+net stop Dnscache >nul 2>&1
+net start Dnscache >> "!REPAIR_LOG!" 2>&1
+echo    Critical services restarted. >> "!REPAIR_LOG!"
+echo    [+] Services restarted.
+
+echo    [5/6] Running Disk Check...
+echo. >> "!REPAIR_LOG!"
+echo    === DISK CHECK === >> "!REPAIR_LOG!"
+chkdsk C: /scan >> "!REPAIR_LOG!" 2>&1
+echo    [+] Disk check complete.
+
+echo    [6/6] Generating Status Report...
+echo. >> "!REPAIR_LOG!"
+echo    === FINAL STATUS === >> "!REPAIR_LOG!"
+echo    Repair completed at: %DATE% %TIME% >> "!REPAIR_LOG!"
+
+echo.
+echo    ___________________________________________________________________________
+echo   ^|                        REPAIR SUMMARY                                     ^|
+echo   ^|___________________________________________________________________________^|
+echo.
+echo    [+] SFC Scan: Completed
+echo    [+] DISM RestoreHealth: Completed
+echo    [+] Windows Update Reset: Completed
+echo    [+] Critical Services: Restarted
+echo    [+] Disk Check: Completed
+echo.
+echo    Full log saved to: !REPAIR_LOG!
+echo.
+echo    [!] A system restart is recommended.
+echo.
+set /p openlog="   Open log file? (Y/N): "
+if /i "!openlog!"=="Y" start notepad "!REPAIR_LOG!"
 pause
 goto MENU
+
+:: ============================================================================
+:: ONE CLICK PC TUNE UP (NEW)
+:: ============================================================================
+
+:ONE_CLICK_TUNEUP
+cls
+echo.
+echo    ___________________________________________________________________________
+echo   ^|                                                                           ^|
+echo   ^|   ONE CLICK PC TUNE UP                                                    ^|
+echo   ^|___________________________________________________________________________^|
+echo.
+echo     [1] Clear Temp and Cache
+echo     [2] Disable Visual Effects
+echo     [3] Set High Performance Power Plan
+echo     [4] Clean Prefetch
+echo     [5] Restart Explorer
+echo     [6] RUN ALL TUNE UPS
+echo     [7] RUN ALL + REBOOT
+echo     [0] Back to Main Menu
+echo.
+set /p tuneup="   Enter your choice [0-7]: "
+
+if "%tuneup%"=="0" goto MENU
+if "%tuneup%"=="1" goto TUNEUP_TEMP
+if "%tuneup%"=="2" goto TUNEUP_VISUAL
+if "%tuneup%"=="3" goto TUNEUP_POWER
+if "%tuneup%"=="4" goto TUNEUP_PREFETCH
+if "%tuneup%"=="5" goto TUNEUP_EXPLORER
+if "%tuneup%"=="6" goto TUNEUP_ALL
+if "%tuneup%"=="7" goto TUNEUP_ALL_REBOOT
+goto ONE_CLICK_TUNEUP
+
+:TUNEUP_TEMP
+echo.
+echo    [*] Clearing temp and cache files...
+del /q/f/s "%TEMP%\*" >nul 2>&1
+del /q/f/s "%WINDIR%\Temp\*" >nul 2>&1
+del /q/f/s "%LOCALAPPDATA%\Temp\*" >nul 2>&1
+del /q/f/s "%APPDATA%\Microsoft\Windows\Recent\*" >nul 2>&1
+echo    [+] Temp and cache cleared!
+pause
+goto ONE_CLICK_TUNEUP
+
+:TUNEUP_VISUAL
+echo.
+echo    [*] Disabling visual effects...
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" /v VisualFXSetting /t REG_DWORD /d 2 /f >nul
+reg add "HKCU\Control Panel\Desktop" /v UserPreferencesMask /t REG_BINARY /d 9012038010000000 /f >nul
+reg add "HKCU\Control Panel\Desktop\WindowMetrics" /v MinAnimate /t REG_SZ /d 0 /f >nul
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarAnimations /t REG_DWORD /d 0 /f >nul
+echo    [+] Visual effects disabled!
+pause
+goto ONE_CLICK_TUNEUP
+
+:TUNEUP_POWER
+echo.
+echo    [*] Setting High Performance power plan...
+powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c >nul 2>&1
+if errorlevel 1 (
+    powercfg -duplicatescheme 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c >nul 2>&1
+    powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c >nul 2>&1
+)
+echo    [+] High Performance power plan activated!
+pause
+goto ONE_CLICK_TUNEUP
+
+:TUNEUP_PREFETCH
+echo.
+echo    [*] Cleaning prefetch...
+del /q/f/s "%WINDIR%\Prefetch\*" >nul 2>&1
+echo    [+] Prefetch cleaned!
+pause
+goto ONE_CLICK_TUNEUP
+
+:TUNEUP_EXPLORER
+echo.
+echo    [*] Restarting Explorer...
+taskkill /F /IM explorer.exe >nul 2>&1
+timeout /t 2 >nul
+start explorer.exe
+echo    [+] Explorer restarted!
+pause
+goto ONE_CLICK_TUNEUP
+
+:TUNEUP_ALL
+echo.
+echo    [*] Running all tune ups...
+echo    [1/5] Clearing temp and cache...
+del /q/f/s "%TEMP%\*" >nul 2>&1
+del /q/f/s "%WINDIR%\Temp\*" >nul 2>&1
+del /q/f/s "%LOCALAPPDATA%\Temp\*" >nul 2>&1
+echo    [2/5] Disabling visual effects...
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" /v VisualFXSetting /t REG_DWORD /d 2 /f >nul
+echo    [3/5] Setting High Performance power plan...
+powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c >nul 2>&1
+echo    [4/5] Cleaning prefetch...
+del /q/f/s "%WINDIR%\Prefetch\*" >nul 2>&1
+echo    [5/5] Restarting Explorer...
+taskkill /F /IM explorer.exe >nul 2>&1
+timeout /t 2 >nul
+start explorer.exe
+echo.
+echo    [+] All tune ups complete!
+pause
+goto MENU
+
+:TUNEUP_ALL_REBOOT
+echo.
+echo    [*] Running all tune ups...
+echo    [1/5] Clearing temp and cache...
+del /q/f/s "%TEMP%\*" >nul 2>&1
+del /q/f/s "%WINDIR%\Temp\*" >nul 2>&1
+del /q/f/s "%LOCALAPPDATA%\Temp\*" >nul 2>&1
+echo    [2/5] Disabling visual effects...
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" /v VisualFXSetting /t REG_DWORD /d 2 /f >nul
+echo    [3/5] Setting High Performance power plan...
+powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c >nul 2>&1
+echo    [4/5] Cleaning prefetch...
+del /q/f/s "%WINDIR%\Prefetch\*" >nul 2>&1
+echo    [5/5] All done!
+echo.
+echo    [+] All tune ups complete!
+echo.
+echo    [!] System will reboot in 10 seconds...
+echo    [!] Press Ctrl+C to cancel.
+timeout /t 10
+shutdown /r /t 0
+goto MENU
+
+:: ============================================================================
+:: NETWORK DOCTOR (NEW)
+:: ============================================================================
+
+:NETWORK_DOCTOR
+cls
+echo.
+echo    ___________________________________________________________________________
+echo   ^|                                                                           ^|
+echo   ^|   NETWORK DOCTOR                                                          ^|
+echo   ^|___________________________________________________________________________^|
+echo.
+echo     [1] Flush DNS
+echo     [2] Reset Winsock
+echo     [3] Reset IP Stack
+echo     [4] Release/Renew IP
+echo     [5] Reset Firewall
+echo     [6] Ping Test
+echo     [7] Speed Test (PowerShell)
+echo     [8] RUN FULL NETWORK REPAIR
+echo     [9] Save Results to Log
+echo     [0] Back to Main Menu
+echo.
+set /p netdoc="   Enter your choice [0-9]: "
+
+if "%netdoc%"=="0" goto MENU
+if "%netdoc%"=="1" (
+    echo.
+    echo    [*] Flushing DNS...
+    ipconfig /flushdns
+    pause
+    goto NETWORK_DOCTOR
+)
+if "%netdoc%"=="2" (
+    echo.
+    echo    [*] Resetting Winsock...
+    netsh winsock reset
+    echo    [+] Winsock reset complete. Restart required.
+    pause
+    goto NETWORK_DOCTOR
+)
+if "%netdoc%"=="3" (
+    echo.
+    echo    [*] Resetting IP Stack...
+    netsh int ip reset
+    echo    [+] IP stack reset. Restart required.
+    pause
+    goto NETWORK_DOCTOR
+)
+if "%netdoc%"=="4" (
+    echo.
+    echo    [*] Releasing IP...
+    ipconfig /release
+    echo    [*] Renewing IP...
+    ipconfig /renew
+    pause
+    goto NETWORK_DOCTOR
+)
+if "%netdoc%"=="5" (
+    echo.
+    echo    [*] Resetting Firewall to defaults...
+    netsh advfirewall reset
+    echo    [+] Firewall reset!
+    pause
+    goto NETWORK_DOCTOR
+)
+if "%netdoc%"=="6" (
+    echo.
+    echo    [*] Ping Test to 8.8.8.8, 1.1.1.1, google.com...
+    echo.
+    ping 8.8.8.8 -n 4
+    echo.
+    ping 1.1.1.1 -n 4
+    echo.
+    ping google.com -n 4
+    pause
+    goto NETWORK_DOCTOR
+)
+if "%netdoc%"=="7" (
+    echo.
+    echo    [*] Running Speed Test via PowerShell...
+    echo    [*] Testing download speed ^(approx^)...
+    powershell -Command "$ProgressPreference = 'SilentlyContinue'; $webClient = New-Object System.Net.WebClient; $start = Get-Date; $webClient.DownloadData('http://speedtest.tele2.net/1MB.zip') | Out-Null; $end = Get-Date; $time = ($end - $start).TotalSeconds; $speed = [math]::Round(8 / $time, 2); Write-Host '    Download Speed: ~' $speed 'Mbps (1MB test file)'"
+    pause
+    goto NETWORK_DOCTOR
+)
+if "%netdoc%"=="8" (
+    echo.
+    echo    [*] Running full network repair...
+    echo    [1/5] Flushing DNS...
+    ipconfig /flushdns
+    echo    [2/5] Resetting Winsock...
+    netsh winsock reset
+    echo    [3/5] Resetting IP Stack...
+    netsh int ip reset
+    echo    [4/5] Resetting Firewall...
+    netsh advfirewall reset
+    echo    [5/5] Renewing IP...
+    ipconfig /release >nul 2>&1
+    ipconfig /renew
+    echo.
+    echo    [+] Full network repair complete!
+    echo    [!] System restart recommended.
+    pause
+    goto NETWORK_DOCTOR
+)
+if "%netdoc%"=="9" (
+    set "NETLOG=%BACKUP_DIR%\network_log_%DATE:~-4%%DATE:~-10,2%%DATE:~-7,2%.txt"
+    echo    === NETWORK DOCTOR LOG === > "!NETLOG!"
+    echo    Date: %DATE% %TIME% >> "!NETLOG!"
+    echo. >> "!NETLOG!"
+    echo    === IPCONFIG /ALL === >> "!NETLOG!"
+    ipconfig /all >> "!NETLOG!"
+    echo. >> "!NETLOG!"
+    echo    === PING TESTS === >> "!NETLOG!"
+    ping 8.8.8.8 -n 4 >> "!NETLOG!"
+    ping google.com -n 4 >> "!NETLOG!"
+    echo. >> "!NETLOG!"
+    echo    === ROUTE PRINT === >> "!NETLOG!"
+    route print >> "!NETLOG!"
+    echo.
+    echo    [+] Log saved to: !NETLOG!
+    start notepad "!NETLOG!"
+    pause
+    goto NETWORK_DOCTOR
+)
+goto NETWORK_DOCTOR
+
+:: ============================================================================
+:: STARTUP BLOAT MANAGER (NEW)
+:: ============================================================================
+
+:STARTUP_BLOAT_MANAGER
+cls
+echo.
+echo    ___________________________________________________________________________
+echo   ^|                                                                           ^|
+echo   ^|   STARTUP BLOAT MANAGER                                                   ^|
+echo   ^|___________________________________________________________________________^|
+echo.
+echo     [1] List All Startup Registry Entries
+echo     [2] Disable Selected Startup Entry
+echo     [3] Restore Disabled Entry
+echo     [4] Backup All Startup Keys
+echo     [5] View Backup Files
+echo     [0] Back to Main Menu
+echo.
+set /p sbm="   Enter your choice [0-5]: "
+
+if "%sbm%"=="0" goto MENU
+if "%sbm%"=="1" (
+    cls
+    echo.
+    echo    === HKCU\...\Run ===
+    reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" 2>nul
+    echo.
+    echo    === HKLM\...\Run ===
+    reg query "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" 2>nul
+    echo.
+    echo    === DISABLED ITEMS ===
+    reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" 2>nul
+    echo.
+    pause
+    goto STARTUP_BLOAT_MANAGER
+)
+if "%sbm%"=="2" (
+    echo.
+    echo    Enter the VALUE NAME of the startup entry to disable:
+    echo    (Example: OneDrive, Spotify, etc.)
+    echo.
+    set /p disableentry="   Entry name: "
+    reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "!disableentry!" /f >nul 2>&1
+    reg delete "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" /v "!disableentry!" /f >nul 2>&1
+    echo    [+] Entry '!disableentry!' disabled (if it existed).
+    pause
+    goto STARTUP_BLOAT_MANAGER
+)
+if "%sbm%"=="3" (
+    echo.
+    echo    [*] Listing available backup files...
+    dir "%BACKUP_DIR%\startup_backup_*.reg" /B 2>nul
+    echo.
+    set /p restorefile="   Enter full filename to restore: "
+    if exist "%BACKUP_DIR%\!restorefile!" (
+        reg import "%BACKUP_DIR%\!restorefile!"
+        echo    [+] Restored from !restorefile!
+    ) else (
+        echo    [!] File not found.
+    )
+    pause
+    goto STARTUP_BLOAT_MANAGER
+)
+if "%sbm%"=="4" (
+    set "SBM_BACKUP=%BACKUP_DIR%\startup_backup_%DATE:~-4%%DATE:~-10,2%%DATE:~-7,2%"
+    echo    [*] Backing up startup registry keys...
+    reg export "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" "!SBM_BACKUP!_HKCU.reg" /y >nul 2>&1
+    reg export "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" "!SBM_BACKUP!_HKLM.reg" /y >nul 2>&1
+    echo    [+] Backup saved to: !SBM_BACKUP!_*.reg
+    pause
+    goto STARTUP_BLOAT_MANAGER
+)
+if "%sbm%"=="5" (
+    echo.
+    dir "%BACKUP_DIR%\startup_backup_*" /B 2>nul
+    pause
+    goto STARTUP_BLOAT_MANAGER
+)
+goto STARTUP_BLOAT_MANAGER
+
+:: ============================================================================
+:: BASIC WINDOWS HARDENING (NEW)
+:: ============================================================================
+
+:WINDOWS_HARDENING
+cls
+echo.
+echo    ___________________________________________________________________________
+echo   ^|                                                                           ^|
+echo   ^|   BASIC WINDOWS HARDENING                                                 ^|
+echo   ^|___________________________________________________________________________^|
+echo.
+echo     [1] Disable SMBv1 (Recommended)
+echo     [2] Disable Remote Registry
+echo     [3] Disable PowerShell v2
+echo     [4] Enable Firewall Rules
+echo     [5] Block Risky Services
+echo     [6] APPLY ALL HARDENING
+echo     [7] RESTORE DEFAULTS
+echo     [0] Back to Main Menu
+echo.
+set /p harden="   Enter your choice [0-7]: "
+
+if "%harden%"=="0" goto MENU
+if "%harden%"=="1" (
+    echo.
+    echo    [*] Disabling SMBv1...
+    dism /online /Disable-Feature /FeatureName:SMB1Protocol /NoRestart >nul 2>&1
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" /v SMB1 /t REG_DWORD /d 0 /f >nul
+    echo    [+] SMBv1 disabled!
+    pause
+    goto WINDOWS_HARDENING
+)
+if "%harden%"=="2" (
+    echo.
+    echo    [*] Disabling Remote Registry...
+    sc config RemoteRegistry start= disabled >nul 2>&1
+    net stop RemoteRegistry >nul 2>&1
+    echo    [+] Remote Registry disabled!
+    pause
+    goto WINDOWS_HARDENING
+)
+if "%harden%"=="3" (
+    echo.
+    echo    [*] Disabling PowerShell v2...
+    dism /online /Disable-Feature /FeatureName:MicrosoftWindowsPowerShellV2 /NoRestart >nul 2>&1
+    dism /online /Disable-Feature /FeatureName:MicrosoftWindowsPowerShellV2Root /NoRestart >nul 2>&1
+    echo    [+] PowerShell v2 disabled!
+    pause
+    goto WINDOWS_HARDENING
+)
+if "%harden%"=="4" (
+    echo.
+    echo    [*] Enabling Firewall for all profiles...
+    netsh advfirewall set allprofiles state on
+    echo    [+] Firewall enabled!
+    pause
+    goto WINDOWS_HARDENING
+)
+if "%harden%"=="5" (
+    echo.
+    echo    [*] Blocking risky services...
+    sc config RemoteRegistry start= disabled >nul 2>&1
+    sc config RemoteAccess start= disabled >nul 2>&1
+    sc config Telephony start= disabled >nul 2>&1
+    sc config TapiSrv start= disabled >nul 2>&1
+    echo    [+] Risky services blocked!
+    pause
+    goto WINDOWS_HARDENING
+)
+if "%harden%"=="6" (
+    echo.
+    echo    [*] Applying all hardening measures...
+    echo    [1/5] Disabling SMBv1...
+    dism /online /Disable-Feature /FeatureName:SMB1Protocol /NoRestart >nul 2>&1
+    reg add "HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" /v SMB1 /t REG_DWORD /d 0 /f >nul
+    echo    [2/5] Disabling Remote Registry...
+    sc config RemoteRegistry start= disabled >nul 2>&1
+    echo    [3/5] Disabling PowerShell v2...
+    dism /online /Disable-Feature /FeatureName:MicrosoftWindowsPowerShellV2 /NoRestart >nul 2>&1
+    echo    [4/5] Enabling Firewall...
+    netsh advfirewall set allprofiles state on >nul
+    echo    [5/5] Blocking risky services...
+    sc config RemoteAccess start= disabled >nul 2>&1
+    echo.
+    echo    [+] All hardening measures applied!
+    pause
+    goto WINDOWS_HARDENING
+)
+if "%harden%"=="7" (
+    echo.
+    echo    [*] Restoring defaults...
+    sc config RemoteRegistry start= demand >nul 2>&1
+    sc config RemoteAccess start= demand >nul 2>&1
+    dism /online /Enable-Feature /FeatureName:SMB1Protocol /NoRestart >nul 2>&1
+    echo    [+] Defaults restored!
+    pause
+    goto WINDOWS_HARDENING
+)
+goto WINDOWS_HARDENING
+
+:: ============================================================================
+:: DEFENDER CONTROL PANEL (NEW)
+:: ============================================================================
+
+:DEFENDER_CONTROL
+cls
+echo.
+echo    ___________________________________________________________________________
+echo   ^|                                                                           ^|
+echo   ^|   DEFENDER CONTROL PANEL                                                  ^|
+echo   ^|___________________________________________________________________________^|
+echo.
+echo     [1] Show Defender Status
+echo     [2] Toggle Real-Time Protection
+echo     [3] Toggle Cloud Protection
+echo     [4] Toggle Sample Submission
+echo     [5] Open Windows Security App
+echo     [0] Back to Main Menu
+echo.
+set /p defctl="   Enter your choice [0-5]: "
+
+if "%defctl%"=="0" goto MENU
+if "%defctl%"=="1" (
+    echo.
+    echo    === WINDOWS DEFENDER STATUS ===
+    echo.
+    powershell -Command "Get-MpComputerStatus | Select-Object AntivirusEnabled, RealTimeProtectionEnabled, IoavProtectionEnabled, AntispywareEnabled, BehaviorMonitorEnabled | Format-List"
+    pause
+    goto DEFENDER_CONTROL
+)
+if "%defctl%"=="2" (
+    echo.
+    echo    [*] Toggling Real-Time Protection...
+    echo    [!] Note: This may be blocked by Tamper Protection.
+    powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $(!((Get-MpPreference).DisableRealtimeMonitoring))"
+    echo    [+] Real-Time Protection toggled!
+    pause
+    goto DEFENDER_CONTROL
+)
+if "%defctl%"=="3" (
+    echo.
+    echo    [*] Toggling Cloud Protection...
+    powershell -Command "Set-MpPreference -MAPSReporting $(if((Get-MpPreference).MAPSReporting -eq 0){2}else{0})"
+    echo    [+] Cloud Protection toggled!
+    pause
+    goto DEFENDER_CONTROL
+)
+if "%defctl%"=="4" (
+    echo.
+    echo    [*] Toggling Sample Submission...
+    powershell -Command "Set-MpPreference -SubmitSamplesConsent $(if((Get-MpPreference).SubmitSamplesConsent -eq 0){1}else{0})"
+    echo    [+] Sample Submission toggled!
+    pause
+    goto DEFENDER_CONTROL
+)
+if "%defctl%"=="5" (
+    echo    [*] Opening Windows Security...
+    start windowsdefender:
+    goto DEFENDER_CONTROL
+)
+goto DEFENDER_CONTROL
+
+:: ============================================================================
+:: USER ACCOUNT AUDITOR (NEW)
+:: ============================================================================
+
+:USER_ACCOUNT_AUDITOR
+cls
+echo.
+echo    ___________________________________________________________________________
+echo   ^|                                                                           ^|
+echo   ^|   USER ACCOUNT AUDITOR                                                    ^|
+echo   ^|___________________________________________________________________________^|
+echo.
+echo     [1] List All Local Users
+echo     [2] Show Admin Users
+echo     [3] Show Last Logon Times
+echo     [4] Disable Guest Account
+echo     [5] Lock Inactive Accounts
+echo     [0] Back to Main Menu
+echo.
+set /p uaa="   Enter your choice [0-5]: "
+
+if "%uaa%"=="0" goto MENU
+if "%uaa%"=="1" (
+    echo.
+    echo    === ALL LOCAL USERS ===
+    net user
+    pause
+    goto USER_ACCOUNT_AUDITOR
+)
+if "%uaa%"=="2" (
+    echo.
+    echo    === ADMINISTRATORS ===
+    net localgroup Administrators
+    pause
+    goto USER_ACCOUNT_AUDITOR
+)
+if "%uaa%"=="3" (
+    echo.
+    echo    === LAST LOGON TIMES ===
+    for /f "skip=4 tokens=1" %%u in ('net user') do (
+        if not "%%u"=="The" (
+            echo.
+            echo    User: %%u
+            net user "%%u" 2>nul | findstr /C:"Last logon"
+        )
+    )
+    pause
+    goto USER_ACCOUNT_AUDITOR
+)
+if "%uaa%"=="4" (
+    echo.
+    echo    [*] Disabling Guest account...
+    net user Guest /active:no >nul 2>&1
+    echo    [+] Guest account disabled!
+    pause
+    goto USER_ACCOUNT_AUDITOR
+)
+if "%uaa%"=="5" (
+    echo.
+    echo    [*] This will disable accounts that haven't logged in for 90+ days.
+    set /p confirm="   Proceed? (Y/N): "
+    if /i "!confirm!"=="Y" (
+        echo    [!] Feature requires PowerShell 5.1+ and AD module for full functionality.
+        echo    [*] For local accounts, manually review last logon dates above.
+    )
+    pause
+    goto USER_ACCOUNT_AUDITOR
+)
+goto USER_ACCOUNT_AUDITOR
+
+:: ============================================================================
+:: WINDOWS FEATURE TOGGLE (NEW)
+:: ============================================================================
+
+:WINDOWS_FEATURE_TOGGLE
+cls
+echo.
+echo    ___________________________________________________________________________
+echo   ^|                                                                           ^|
+echo   ^|   WINDOWS FEATURE TOGGLE                                                  ^|
+echo   ^|___________________________________________________________________________^|
+echo.
+echo     [1] Hyper-V (Enable/Disable)
+echo     [2] Windows Sandbox (Enable/Disable)
+echo     [3] Telnet Client (Enable/Disable)
+echo     [4] SMB 1.0 (Enable/Disable)
+echo     [5] IIS (Enable/Disable)
+echo     [6] .NET Framework 3.5 (Enable)
+echo     [7] View All Optional Features
+echo     [0] Back to Main Menu
+echo.
+set /p wft="   Enter your choice [0-7]: "
+
+if "%wft%"=="0" goto MENU
+if "%wft%"=="1" (
+    echo.
+    echo    [1] Enable Hyper-V
+    echo    [2] Disable Hyper-V
+    set /p hvchoice="   Choice: "
+    if "!hvchoice!"=="1" (
+        dism /online /Enable-Feature /FeatureName:Microsoft-Hyper-V-All /NoRestart
+    )
+    if "!hvchoice!"=="2" (
+        dism /online /Disable-Feature /FeatureName:Microsoft-Hyper-V-All /NoRestart
+    )
+    pause
+    goto WINDOWS_FEATURE_TOGGLE
+)
+if "%wft%"=="2" (
+    echo.
+    echo    [1] Enable Windows Sandbox
+    echo    [2] Disable Windows Sandbox
+    set /p sbchoice="   Choice: "
+    if "!sbchoice!"=="1" (
+        dism /online /Enable-Feature /FeatureName:Containers-DisposableClientVM /NoRestart
+    )
+    if "!sbchoice!"=="2" (
+        dism /online /Disable-Feature /FeatureName:Containers-DisposableClientVM /NoRestart
+    )
+    pause
+    goto WINDOWS_FEATURE_TOGGLE
+)
+if "%wft%"=="3" (
+    echo.
+    echo    [1] Enable Telnet
+    echo    [2] Disable Telnet
+    set /p telchoice="   Choice: "
+    if "!telchoice!"=="1" (
+        dism /online /Enable-Feature /FeatureName:TelnetClient /NoRestart
+    )
+    if "!telchoice!"=="2" (
+        dism /online /Disable-Feature /FeatureName:TelnetClient /NoRestart
+    )
+    pause
+    goto WINDOWS_FEATURE_TOGGLE
+)
+if "%wft%"=="4" (
+    echo.
+    echo    [1] Enable SMB 1.0 (Not Recommended)
+    echo    [2] Disable SMB 1.0 (Recommended)
+    set /p smbchoice="   Choice: "
+    if "!smbchoice!"=="1" (
+        dism /online /Enable-Feature /FeatureName:SMB1Protocol /NoRestart
+    )
+    if "!smbchoice!"=="2" (
+        dism /online /Disable-Feature /FeatureName:SMB1Protocol /NoRestart
+    )
+    pause
+    goto WINDOWS_FEATURE_TOGGLE
+)
+if "%wft%"=="5" (
+    echo.
+    echo    [1] Enable IIS
+    echo    [2] Disable IIS
+    set /p iischoice="   Choice: "
+    if "!iischoice!"=="1" (
+        dism /online /Enable-Feature /FeatureName:IIS-WebServerRole /NoRestart
+    )
+    if "!iischoice!"=="2" (
+        dism /online /Disable-Feature /FeatureName:IIS-WebServerRole /NoRestart
+    )
+    pause
+    goto WINDOWS_FEATURE_TOGGLE
+)
+if "%wft%"=="6" (
+    echo.
+    echo    [*] Enabling .NET Framework 3.5...
+    dism /online /Enable-Feature /FeatureName:NetFx3 /NoRestart
+    pause
+    goto WINDOWS_FEATURE_TOGGLE
+)
+if "%wft%"=="7" (
+    echo.
+    echo    [*] Listing all optional features...
+    dism /online /Get-Features | more
+    pause
+    goto WINDOWS_FEATURE_TOGGLE
+)
+goto WINDOWS_FEATURE_TOGGLE
 
 :: ============================================================================
 :: STARTUP APPS NUKER
@@ -423,42 +1210,23 @@ if %count%==0 (
 )
 
 echo.
-echo     [0] Cancel
-echo.
-set /p restorechoice="   Select backup to restore [0-%count%]: "
-if "%restorechoice%"=="0" goto STARTUP_NUKER
+set /p restnum="   Enter backup number to restore [0 to cancel]: "
+if "%restnum%"=="0" goto STARTUP_NUKER
 
-set "selected_backup=!backup_%restorechoice%!"
-if not defined selected_backup (
+set "restore_path=!backup_%restnum%!"
+if not defined restore_path (
     echo    [!] Invalid selection.
     pause
-    goto RESTORE_STARTUP
+    goto STARTUP_NUKER
 )
 
 echo.
-echo    [*] Restoring from: !selected_backup!
-
-if exist "!selected_backup!\HKCU_Run.reg" (
-    echo    [*] Restoring HKCU Run...
-    reg import "!selected_backup!\HKCU_Run.reg" >nul 2>&1
-)
-if exist "!selected_backup!\HKLM_Run.reg" (
-    echo    [*] Restoring HKLM Run...
-    reg import "!selected_backup!\HKLM_Run.reg" >nul 2>&1
-)
-if exist "!selected_backup!\HKLM_Run_Wow64.reg" (
-    echo    [*] Restoring HKLM Wow6432Node Run...
-    reg import "!selected_backup!\HKLM_Run_Wow64.reg" >nul 2>&1
-)
-if exist "!selected_backup!\UserStartup_moved\*" (
-    echo    [*] Restoring user startup folder...
-    xcopy "!selected_backup!\UserStartup_moved\*" "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\" /E /I /Y >nul 2>&1
-)
-if exist "!selected_backup!\AllUsersStartup_moved\*" (
-    echo    [*] Restoring all users startup folder...
-    xcopy "!selected_backup!\AllUsersStartup_moved\*" "%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup\" /E /I /Y >nul 2>&1
-)
-
+echo    [*] Restoring from: !restore_path!
+if exist "!restore_path!\HKCU_Run.reg" reg import "!restore_path!\HKCU_Run.reg" >nul 2>&1
+if exist "!restore_path!\HKLM_Run.reg" reg import "!restore_path!\HKLM_Run.reg" >nul 2>&1
+if exist "!restore_path!\HKLM_Run_Wow64.reg" reg import "!restore_path!\HKLM_Run_Wow64.reg" >nul 2>&1
+xcopy "!restore_path!\UserStartup\*" "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\" /E /I /Y >nul 2>&1
+xcopy "!restore_path!\AllUsersStartup\*" "%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup\" /E /I /Y >nul 2>&1
 echo.
 echo    [+] Startup apps restored!
 echo.
@@ -474,13 +1242,13 @@ cls
 echo.
 echo    ___________________________________________________________________________
 echo   ^|                                                                           ^|
-echo   ^|   INTERACTIVE DEBLOATER [Windows !WIN_VER!]                                    ^|
+echo   ^|   INTERACTIVE DEBLOATER                                                   ^|
 echo   ^|___________________________________________________________________________^|
+echo.
+echo    Select items to debloat (you can enter multiple numbers):
 echo.
 
 if "!WIN_VER!"=="11" (
-    echo    Select items to debloat (enter numbers separated by spaces or commas^):
-    echo.
     echo     [1] Teams Personal
     echo     [2] Widgets
     echo     [3] Chat
@@ -492,8 +1260,6 @@ if "!WIN_VER!"=="11" (
     echo     [9] Phone Link
     echo     [10] Gaming Services
 ) else (
-    echo    Select items to debloat (enter numbers separated by spaces or commas^):
-    echo.
     echo     [1] Cortana
     echo     [2] Microsoft Teams
     echo     [3] OneDrive
@@ -752,64 +1518,6 @@ pause
 goto MENU
 
 :: ============================================================================
-:: PRIVACY TWEAKS
-:: ============================================================================
-
-:PRIVACY_TWEAKS
-cls
-echo.
-echo    ___________________________________________________________________________
-echo   ^|                                                                           ^|
-echo   ^|   PRIVACY TWEAKS                                                          ^|
-echo   ^|___________________________________________________________________________^|
-echo.
-echo    This will:
-echo     - Disable Telemetry
-echo     - Disable Activity History
-echo     - Disable Advertising ID
-echo     - Disable Location Tracking
-echo     - Disable Speech Recognition
-echo     - Disable Inking/Typing personalization
-echo.
-set /p confirm="   Proceed? (Y/N): "
-if /i "%confirm%" NEQ "Y" goto MENU
-
-echo.
-echo    [*] Disabling Telemetry...
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection" /v AllowTelemetry /t REG_DWORD /d 0 /f >nul
-reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection" /v AllowTelemetry /t REG_DWORD /d 0 /f >nul
-sc config DiagTrack start= disabled >nul 2>&1
-sc config dmwappushservice start= disabled >nul 2>&1
-
-echo    [*] Disabling Activity History...
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\System" /v EnableActivityFeed /t REG_DWORD /d 0 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\System" /v PublishUserActivities /t REG_DWORD /d 0 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\System" /v UploadUserActivities /t REG_DWORD /d 0 /f >nul
-
-echo    [*] Disabling Advertising ID...
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" /v Enabled /t REG_DWORD /d 0 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo" /v DisabledByGroupPolicy /t REG_DWORD /d 1 /f >nul
-
-echo    [*] Disabling Location Tracking...
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors" /v DisableLocation /t REG_DWORD /d 1 /f >nul
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location" /v Value /t REG_SZ /d Deny /f >nul
-
-echo    [*] Disabling Speech Recognition...
-reg add "HKCU\Software\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy" /v HasAccepted /t REG_DWORD /d 0 /f >nul
-
-echo    [*] Disabling Inking/Typing personalization...
-reg add "HKCU\Software\Microsoft\InputPersonalization" /v RestrictImplicitTextCollection /t REG_DWORD /d 1 /f >nul
-reg add "HKCU\Software\Microsoft\InputPersonalization" /v RestrictImplicitInkCollection /t REG_DWORD /d 1 /f >nul
-reg add "HKCU\Software\Microsoft\InputPersonalization\TrainedDataStore" /v HarvestContacts /t REG_DWORD /d 0 /f >nul
-reg add "HKCU\Software\Microsoft\Personalization\Settings" /v AcceptedPrivacyPolicy /t REG_DWORD /d 0 /f >nul
-
-echo.
-echo    [+] Privacy settings applied!
-echo.
-pause
-goto MENU
-
-:: ============================================================================
 :: EXTENDED CLEANING
 :: ============================================================================
 
@@ -918,45 +1626,43 @@ goto EXTENDED_CLEANING
 
 :CLEAN_ALL_CACHES
 echo.
-echo    [*] Stopping services...
-net stop wuauserv >nul 2>&1
-net stop bits >nul 2>&1
-net stop cryptSvc >nul 2>&1
-net stop FontCache >nul 2>&1
-taskkill /F /IM explorer.exe >nul 2>&1
+echo    [*] Cleaning ALL caches...
 
-echo    [*] Cleaning all temp files...
+echo    [1/6] Cleaning temp files...
 del /q/f/s "%TEMP%\*" >nul 2>&1
 del /q/f/s "%WINDIR%\Temp\*" >nul 2>&1
 del /q/f/s "%WINDIR%\Prefetch\*" >nul 2>&1
 del /q/f/s "%LOCALAPPDATA%\Temp\*" >nul 2>&1
 
-echo    [*] Cleaning Windows Update cache...
+echo    [2/6] Cleaning Windows Update cache...
+net stop wuauserv >nul 2>&1
+net stop bits >nul 2>&1
 rd /s /q "%WINDIR%\SoftwareDistribution\Download" >nul 2>&1
 mkdir "%WINDIR%\SoftwareDistribution\Download" >nul 2>&1
+net start wuauserv >nul 2>&1
+net start bits >nul 2>&1
 
-echo    [*] Cleaning icon cache...
+echo    [3/6] Clearing icon cache...
 del /f /q "%LOCALAPPDATA%\IconCache.db" >nul 2>&1
 del /f /q "%LOCALAPPDATA%\Microsoft\Windows\Explorer\iconcache*" >nul 2>&1
 
-echo    [*] Cleaning thumbnail cache...
+echo    [4/6] Clearing thumbnail cache...
 del /f /q "%LOCALAPPDATA%\Microsoft\Windows\Explorer\thumbcache_*.db" >nul 2>&1
 
-echo    [*] Cleaning font cache...
+echo    [5/6] Clearing font cache...
+net stop FontCache >nul 2>&1
 del /f /q "%WINDIR%\ServiceProfiles\LocalService\AppData\Local\FontCache\*.dat" >nul 2>&1
-
-echo    [*] Clearing event logs...
-for /f "tokens=*" %%l in ('wevtutil el') do wevtutil cl "%%l" >nul 2>&1
-
-echo    [*] Restarting services...
-net start cryptSvc >nul 2>&1
-net start wuauserv >nul 2>&1
-net start bits >nul 2>&1
 net start FontCache >nul 2>&1
-start explorer.exe
 
+echo    [6/6] Clearing event logs...
+for /f "tokens=*" %%l in ('wevtutil el') do (
+    wevtutil cl "%%l" >nul 2>&1
+)
+
+taskkill /F /IM explorer.exe >nul 2>&1
+start explorer.exe
 echo.
-echo    [+] All caches cleaned!
+echo    [+] ALL caches cleared! Explorer restarted.
 pause
 goto EXTENDED_CLEANING
 
@@ -972,84 +1678,63 @@ echo   ^|                                                                       
 echo   ^|   APPX BLOAT CONTROL                                                      ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-echo     [1] List ALL Installed Appx Packages
-echo     [2] Remove Common Bloatware (keeps Store)
-echo     [3] Remove Appx by Name (search)
-echo     [4] Deprovision Removed Apps (prevent reinstall)
+echo     [1] List All Installed AppX Packages
+echo     [2] Remove Common Bloatware Apps
+echo     [3] Remove Specific App by Name
+echo     [4] Reinstall All Default Apps
 echo     [0] Back to Main Menu
 echo.
-set /p axchoice="   Enter your choice [0-4]: "
+set /p appxchoice="   Enter your choice [0-4]: "
 
-if "%axchoice%"=="0" goto MENU
-if "%axchoice%"=="1" goto LIST_APPX
-if "%axchoice%"=="2" goto REMOVE_COMMON_APPX
-if "%axchoice%"=="3" goto REMOVE_APPX_SEARCH
-if "%axchoice%"=="4" goto DEPROVISION_APPX
-goto APPX_CONTROL
-
-:LIST_APPX
-cls
-echo.
-echo    Installed Appx Packages:
-echo    ========================
-echo.
-PowerShell -Command "Get-AppxPackage | Select-Object Name | Sort-Object Name | Format-Table -AutoSize"
-pause
-goto APPX_CONTROL
-
-:REMOVE_COMMON_APPX
-echo.
-echo    [!] This will remove common bloatware apps (NOT Microsoft Store).
-set /p confirm="   Proceed? (Y/N): "
-if /i "%confirm%" NEQ "Y" goto APPX_CONTROL
-
-echo.
-echo    [*] Removing bloatware...
-PowerShell -Command "Get-AppxPackage *3DBuilder* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *BingNews* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *BingWeather* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *Clipchamp* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *GetHelp* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *Getstarted* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *MixedReality* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *People* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *SkypeApp* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *Solitaire* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *Todos* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *YourPhone* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *ZuneMusic* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *ZuneVideo* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *Feedback* | Remove-AppxPackage" >nul 2>&1
-PowerShell -Command "Get-AppxPackage *QuickAssist* | Remove-AppxPackage" >nul 2>&1
-echo    [+] Common bloatware removed!
-pause
-goto APPX_CONTROL
-
-:REMOVE_APPX_SEARCH
-echo.
-set /p searchterm="   Enter app name to search (partial match): "
-echo.
-echo    Matching packages:
-PowerShell -Command "Get-AppxPackage *%searchterm%* | Select-Object Name"
-echo.
-set /p confirm="   Remove ALL matching packages? (Y/N): "
-if /i "%confirm%"=="Y" (
-    PowerShell -Command "Get-AppxPackage *%searchterm%* | Remove-AppxPackage"
-    echo    [+] Matching packages removed!
+if "%appxchoice%"=="0" goto MENU
+if "%appxchoice%"=="1" (
+    echo.
+    echo    [*] Listing all AppX packages...
+    powershell -Command "Get-AppxPackage | Select-Object Name | Format-Table -AutoSize" | more
+    pause
+    goto APPX_CONTROL
 )
-pause
-goto APPX_CONTROL
-
-:DEPROVISION_APPX
-echo.
-echo    [!] This will deprovision apps so they don't reinstall for new users.
-set /p confirm="   Proceed? (Y/N): "
-if /i "%confirm%" NEQ "Y" goto APPX_CONTROL
-
-echo    [*] Deprovisioning common bloatware...
-PowerShell -Command "Get-AppxProvisionedPackage -Online | Where-Object {$_.DisplayName -notlike '*Store*'} | Remove-AppxProvisionedPackage -Online" >nul 2>&1
-echo    [+] Apps deprovisioned! They won't reinstall for new users.
-pause
+if "%appxchoice%"=="2" (
+    echo.
+    echo    [*] Removing common bloatware...
+    echo    [*] Xbox apps...
+    powershell -Command "Get-AppxPackage *xbox* | Remove-AppxPackage" >nul 2>&1
+    echo    [*] Solitaire...
+    powershell -Command "Get-AppxPackage *Solitaire* | Remove-AppxPackage" >nul 2>&1
+    echo    [*] Bing apps...
+    powershell -Command "Get-AppxPackage *Bing* | Remove-AppxPackage" >nul 2>&1
+    echo    [*] Zune apps...
+    powershell -Command "Get-AppxPackage *Zune* | Remove-AppxPackage" >nul 2>&1
+    echo    [*] 3D apps...
+    powershell -Command "Get-AppxPackage *3DBuilder* | Remove-AppxPackage" >nul 2>&1
+    powershell -Command "Get-AppxPackage *3DViewer* | Remove-AppxPackage" >nul 2>&1
+    echo    [*] Tips...
+    powershell -Command "Get-AppxPackage *GetStarted* | Remove-AppxPackage" >nul 2>&1
+    echo    [*] Feedback Hub...
+    powershell -Command "Get-AppxPackage *WindowsFeedbackHub* | Remove-AppxPackage" >nul 2>&1
+    echo.
+    echo    [+] Common bloatware removed!
+    pause
+    goto APPX_CONTROL
+)
+if "%appxchoice%"=="3" (
+    echo.
+    set /p appname="   Enter app name (partial match): "
+    echo    [*] Removing apps matching '!appname!'...
+    powershell -Command "Get-AppxPackage *!appname!* | Remove-AppxPackage"
+    echo    [+] Done!
+    pause
+    goto APPX_CONTROL
+)
+if "%appxchoice%"=="4" (
+    echo.
+    echo    [*] Reinstalling all default apps...
+    echo    [!] This may take several minutes...
+    powershell -Command "Get-AppxPackage -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register \"$($_.InstallLocation)\AppXManifest.xml\" -ErrorAction SilentlyContinue}"
+    echo    [+] Default apps reinstalled!
+    pause
+    goto APPX_CONTROL
+)
 goto APPX_CONTROL
 
 :: ============================================================================
@@ -1064,81 +1749,69 @@ echo   ^|                                                                       
 echo   ^|   SERVICE MANAGER                                                         ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-echo     [1] Disable Unnecessary Services (Safe)
-echo     [2] Re-enable Services
-echo     [3] List All Running Services
+echo     [1] List Running Services
+echo     [2] List Stopped Services
+echo     [3] Stop a Service
+echo     [4] Start a Service
+echo     [5] Set Service to Manual
+echo     [6] Set Service to Disabled
+echo     [7] Set Service to Automatic
 echo     [0] Back to Main Menu
 echo.
-set /p smchoice="   Enter your choice [0-3]: "
+set /p srvchoice="   Enter your choice [0-7]: "
 
-if "%smchoice%"=="0" goto MENU
-if "%smchoice%"=="1" goto DISABLE_SERVICES
-if "%smchoice%"=="2" goto ENABLE_SERVICES
-if "%smchoice%"=="3" goto LIST_SERVICES
-goto SERVICE_MANAGER
-
-:DISABLE_SERVICES
-echo.
-echo    [!] This will disable non-essential background services.
-set /p confirm="   Proceed? (Y/N): "
-if /i "%confirm%" NEQ "Y" goto SERVICE_MANAGER
-
-echo.
-echo    [*] Disabling DiagTrack (Telemetry)...
-sc config DiagTrack start= disabled >nul 2>&1
-net stop DiagTrack >nul 2>&1
-
-echo    [*] Disabling dmwappushservice...
-sc config dmwappushservice start= disabled >nul 2>&1
-net stop dmwappushservice >nul 2>&1
-
-echo    [*] Disabling Remote Registry...
-sc config RemoteRegistry start= disabled >nul 2>&1
-net stop RemoteRegistry >nul 2>&1
-
-echo    [*] Disabling Fax service...
-sc config Fax start= disabled >nul 2>&1
-
-echo    [*] Disabling RetailDemo...
-sc config RetailDemo start= disabled >nul 2>&1
-
-echo    [*] Disabling Xbox services...
-sc config XboxGipSvc start= disabled >nul 2>&1
-sc config XblAuthManager start= disabled >nul 2>&1
-sc config XblGameSave start= disabled >nul 2>&1
-sc config XboxNetApiSvc start= disabled >nul 2>&1
-
-echo.
-echo    [+] Unnecessary services disabled!
-pause
-goto SERVICE_MANAGER
-
-:ENABLE_SERVICES
-echo.
-echo    [*] Re-enabling services...
-sc config DiagTrack start= auto >nul 2>&1
-sc config dmwappushservice start= auto >nul 2>&1
-sc config RemoteRegistry start= manual >nul 2>&1
-sc config XboxGipSvc start= manual >nul 2>&1
-sc config XblAuthManager start= manual >nul 2>&1
-sc config XblGameSave start= manual >nul 2>&1
-sc config XboxNetApiSvc start= manual >nul 2>&1
-echo    [+] Services re-enabled!
-pause
-goto SERVICE_MANAGER
-
-:LIST_SERVICES
-cls
-echo.
-echo    Running Services:
-echo    =================
-echo.
-net start
-pause
+if "%srvchoice%"=="0" goto MENU
+if "%srvchoice%"=="1" (
+    echo.
+    sc query state= running | findstr "SERVICE_NAME DISPLAY_NAME" | more
+    pause
+    goto SERVICE_MANAGER
+)
+if "%srvchoice%"=="2" (
+    echo.
+    sc query state= inactive | findstr "SERVICE_NAME DISPLAY_NAME" | more
+    pause
+    goto SERVICE_MANAGER
+)
+if "%srvchoice%"=="3" (
+    echo.
+    set /p srvname="   Enter service name to stop: "
+    net stop "!srvname!"
+    pause
+    goto SERVICE_MANAGER
+)
+if "%srvchoice%"=="4" (
+    echo.
+    set /p srvname="   Enter service name to start: "
+    net start "!srvname!"
+    pause
+    goto SERVICE_MANAGER
+)
+if "%srvchoice%"=="5" (
+    echo.
+    set /p srvname="   Enter service name to set to manual: "
+    sc config "!srvname!" start= demand
+    pause
+    goto SERVICE_MANAGER
+)
+if "%srvchoice%"=="6" (
+    echo.
+    set /p srvname="   Enter service name to disable: "
+    sc config "!srvname!" start= disabled
+    pause
+    goto SERVICE_MANAGER
+)
+if "%srvchoice%"=="7" (
+    echo.
+    set /p srvname="   Enter service name to set to automatic: "
+    sc config "!srvname!" start= auto
+    pause
+    goto SERVICE_MANAGER
+)
 goto SERVICE_MANAGER
 
 :: ============================================================================
-:: APPEARANCE TWEAKS
+:: APPEARANCE - DARK/LIGHT MODE
 :: ============================================================================
 
 :DARK_MODE
@@ -1146,15 +1819,14 @@ cls
 echo.
 echo    ___________________________________________________________________________
 echo   ^|                                                                           ^|
-echo   ^|   DARK MODE                                                               ^|
+echo   ^|   ENABLE DARK MODE                                                        ^|
 echo   ^|___________________________________________________________________________^|
 echo.
 echo    [*] Enabling Dark Mode...
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v AppsUseLightTheme /t REG_DWORD /d 0 /f >nul
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v SystemUsesLightTheme /t REG_DWORD /d 0 /f >nul
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v EnableTransparency /t REG_DWORD /d 1 /f >nul
 echo.
-echo    [+] Dark Mode enabled successfully!
+echo    [+] Dark Mode enabled!
 echo.
 pause
 goto MENU
@@ -1164,14 +1836,14 @@ cls
 echo.
 echo    ___________________________________________________________________________
 echo   ^|                                                                           ^|
-echo   ^|   LIGHT MODE                                                              ^|
+echo   ^|   ENABLE LIGHT MODE                                                       ^|
 echo   ^|___________________________________________________________________________^|
 echo.
 echo    [*] Enabling Light Mode...
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v AppsUseLightTheme /t REG_DWORD /d 1 /f >nul
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" /v SystemUsesLightTheme /t REG_DWORD /d 1 /f >nul
 echo.
-echo    [+] Light Mode enabled successfully!
+echo    [+] Light Mode enabled!
 echo.
 pause
 goto MENU
@@ -1181,13 +1853,13 @@ cls
 echo.
 echo    ___________________________________________________________________________
 echo   ^|                                                                           ^|
-echo   ^|   TRANSPARENCY EFFECTS                                                    ^|
+echo   ^|   TOGGLE TRANSPARENCY                                                     ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-echo    Select an option:
+echo    Select transparency option:
 echo.
-echo     [1] Enable Transparency
-echo     [2] Disable Transparency
+echo     [1] Enable Transparency Effects
+echo     [2] Disable Transparency Effects
 echo     [0] Back to Main Menu
 echo.
 set /p tchoice="   Enter your choice [0-2]: "
@@ -1660,46 +2332,23 @@ echo   ^|                                                                       
 echo   ^|   CLEAN EXPLORER FOLDERS                                                  ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-echo    This will hide the following folders from This PC view:
-echo.
-echo     - 3D Objects, Videos, Documents, Downloads, Pictures, Music, Desktop
+echo    This will clean:
+echo     - Recent Documents
+echo     - Temporary Internet Files
+echo     - Downloaded Program Files
 echo.
 set /p confirm="   Proceed? (Y/N): "
 if /i "%confirm%" NEQ "Y" goto MENU
 
 echo.
-echo    [*] Hiding 3D Objects...
-reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{31C0DD25-9439-4F12-BF41-7FF4EDA38722}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-reg add "HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{31C0DD25-9439-4F12-BF41-7FF4EDA38722}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-
-echo    [*] Hiding Videos...
-reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{35286a68-3c57-41a1-bbb1-0eae73d76c95}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-reg add "HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{35286a68-3c57-41a1-bbb1-0eae73d76c95}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-
-echo    [*] Hiding Documents...
-reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{f42ee2d3-909f-4907-8871-4c22fc0bf756}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-reg add "HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{f42ee2d3-909f-4907-8871-4c22fc0bf756}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-
-echo    [*] Hiding Downloads...
-reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7d83ee9b-2244-4e70-b1f5-5393042af1e4}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-reg add "HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{7d83ee9b-2244-4e70-b1f5-5393042af1e4}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-
-echo    [*] Hiding Pictures...
-reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{0ddd015d-b06c-45d5-8c4c-f59713854639}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-reg add "HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{0ddd015d-b06c-45d5-8c4c-f59713854639}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-
-echo    [*] Hiding Music...
-reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{a0c69a99-21c8-4671-8703-7934162fcf1d}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-reg add "HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{a0c69a99-21c8-4671-8703-7934162fcf1d}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-
-echo    [*] Hiding Desktop...
-reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-reg add "HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}\PropertyBag" /v ThisPCPolicy /t REG_SZ /d Hide /f >nul
-
-taskkill /F /IM explorer.exe >nul 2>&1
-start explorer.exe
+echo    [*] Cleaning Recent Documents...
+del /q/f "%APPDATA%\Microsoft\Windows\Recent\*" >nul 2>&1
+echo    [*] Cleaning Temporary Internet Files...
+rd /s /q "%LOCALAPPDATA%\Microsoft\Windows\INetCache" >nul 2>&1
+echo    [*] Cleaning Downloaded Program Files...
+rd /s /q "%WINDIR%\Downloaded Program Files" >nul 2>&1
 echo.
-echo    [+] Explorer folders hidden! Explorer restarted.
+echo    [+] Explorer folders cleaned!
 echo.
 pause
 goto MENU
@@ -1709,20 +2358,16 @@ cls
 echo.
 echo    ___________________________________________________________________________
 echo   ^|                                                                           ^|
-echo   ^|   DISABLE LOCKSCREEN SPOTLIGHT AND ADS                                    ^|
+echo   ^|   CLEAR SPOTLIGHT/LOCKSCREEN ADS                                          ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-echo    [*] Disabling Lockscreen Spotlight and Ads...
-reg add "HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent" /v DisableWindowsSpotlightWindowsWelcomeExperience /t REG_DWORD /d 1 /f >nul
-reg add "HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent" /v DisableWindowsSpotlightFeatures /t REG_DWORD /d 1 /f >nul
-reg add "HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent" /v DisableWindowsSpotlightOnActionCenter /t REG_DWORD /d 1 /f >nul
-reg add "HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent" /v DisableWindowsSpotlightOnSettings /t REG_DWORD /d 1 /f >nul
-reg add "HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent" /v DisableThirdPartySuggestions /t REG_DWORD /d 1 /f >nul
-reg add "HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent" /v ConfigureWindowsSpotlight /t REG_DWORD /d 2 /f >nul
+echo    [*] Disabling Spotlight and lockscreen ads...
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" /v RotatingLockScreenEnabled /t REG_DWORD /d 0 /f >nul
 reg add "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" /v RotatingLockScreenOverlayEnabled /t REG_DWORD /d 0 /f >nul
+reg add "HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent" /v DisableWindowsSpotlightFeatures /t REG_DWORD /d 1 /f >nul
+reg add "HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent" /v DisableWindowsSpotlightOnLockScreen /t REG_DWORD /d 1 /f >nul
 echo.
-echo    [+] Lockscreen Spotlight and ads disabled!
+echo    [+] Spotlight and lockscreen ads disabled!
 echo.
 pause
 goto MENU
@@ -1735,74 +2380,30 @@ echo   ^|                                                                       
 echo   ^|   REMOVE BLOATWARE APPS                                                   ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-echo    Select what to remove:
+echo    This will remove common bloatware apps:
+echo     - Xbox apps (Gaming Bar will remain)
+echo     - Solitaire Collection
+echo     - Feedback Hub
+echo     - Get Help
+echo     - Tips
+echo     - Mixed Reality
+echo     - 3D Viewer
 echo.
-echo     [1] Remove Your Phone / Phone Link
-echo     [2] Remove Widgets / Web Experience
-echo     [3] Remove Xbox Apps
-echo     [4] Remove Microsoft News
-echo     [5] Remove Clipchamp
-echo     [6] Remove ALL Bloatware (except Store)
-echo     [0] Back to Main Menu
+set /p confirm="   Proceed? (Y/N): "
+if /i "%confirm%" NEQ "Y" goto MENU
+
 echo.
-set /p rbchoice="   Enter your choice [0-6]: "
-if "%rbchoice%"=="0" goto MENU
-if "%rbchoice%"=="1" (
-    echo.
-    echo    [*] Removing Your Phone...
-    PowerShell -Command "Get-AppxPackage *YourPhone* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage -allusers *YourPhone* | Remove-AppxPackage" >nul 2>&1
-    echo    [+] Your Phone removed!
-)
-if "%rbchoice%"=="2" (
-    echo.
-    echo    [*] Removing Widgets...
-    PowerShell -Command "Get-AppxPackage *Windows.Client.WebExperience* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage -allusers *Windows.Client.WebExperience* | Remove-AppxPackage" >nul 2>&1
-    echo    [+] Widgets removed!
-)
-if "%rbchoice%"=="3" (
-    echo.
-    echo    [*] Removing Xbox Apps...
-    PowerShell -Command "Get-AppxPackage *Xbox* | Remove-AppxPackage" >nul 2>&1
-    echo    [+] Xbox Apps removed!
-)
-if "%rbchoice%"=="4" (
-    echo.
-    echo    [*] Removing Microsoft News...
-    PowerShell -Command "Get-AppxPackage *BingNews* | Remove-AppxPackage" >nul 2>&1
-    echo    [+] Microsoft News removed!
-)
-if "%rbchoice%"=="5" (
-    echo.
-    echo    [*] Removing Clipchamp...
-    PowerShell -Command "Get-AppxPackage *Clipchamp* | Remove-AppxPackage" >nul 2>&1
-    echo    [+] Clipchamp removed!
-)
-if "%rbchoice%"=="6" (
-    echo.
-    echo    [!] WARNING: This will remove many pre-installed apps.
-    set /p confirm2="   Are you sure? (Y/N): "
-    if /i "!confirm2!" NEQ "Y" goto MENU
-    echo    [*] Removing all bloatware...
-    PowerShell -Command "Get-AppxPackage *3DBuilder* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *BingNews* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *BingWeather* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *Clipchamp* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *GetHelp* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *Getstarted* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *MixedReality* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *People* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *SkypeApp* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *Solitaire* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *Todos* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *YourPhone* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *ZuneMusic* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *ZuneVideo* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *Xbox* | Remove-AppxPackage" >nul 2>&1
-    PowerShell -Command "Get-AppxPackage *Windows.Client.WebExperience* | Remove-AppxPackage" >nul 2>&1
-    echo    [+] All bloatware removed!
-)
+echo    [*] Removing bloatware...
+powershell -Command "Get-AppxPackage *Microsoft.XboxApp* | Remove-AppxPackage" >nul 2>&1
+powershell -Command "Get-AppxPackage *Microsoft.XboxSpeechToTextOverlay* | Remove-AppxPackage" >nul 2>&1
+powershell -Command "Get-AppxPackage *Microsoft.MicrosoftSolitaireCollection* | Remove-AppxPackage" >nul 2>&1
+powershell -Command "Get-AppxPackage *Microsoft.WindowsFeedbackHub* | Remove-AppxPackage" >nul 2>&1
+powershell -Command "Get-AppxPackage *Microsoft.GetHelp* | Remove-AppxPackage" >nul 2>&1
+powershell -Command "Get-AppxPackage *Microsoft.Getstarted* | Remove-AppxPackage" >nul 2>&1
+powershell -Command "Get-AppxPackage *Microsoft.MixedReality* | Remove-AppxPackage" >nul 2>&1
+powershell -Command "Get-AppxPackage *Microsoft.Microsoft3DViewer* | Remove-AppxPackage" >nul 2>&1
+echo.
+echo    [+] Bloatware removed!
 echo.
 pause
 goto MENU
@@ -1816,16 +2417,16 @@ echo   ^|   REMOVE PC HEALTH CHECK                                              
 echo   ^|___________________________________________________________________________^|
 echo.
 echo    [*] Removing PC Health Check...
-PowerShell -Command "Get-AppxPackage *PCHealthCheck* | Remove-AppxPackage" >nul 2>&1
 wmic product where "name like '%%PC Health Check%%'" call uninstall /nointeractive >nul 2>&1
+powershell -Command "Get-AppxPackage *PCHealthCheck* | Remove-AppxPackage" >nul 2>&1
 echo.
-echo    [+] PC Health Check removed (if installed)!
+echo    [+] PC Health Check removed (if it was installed)!
 echo.
 pause
 goto MENU
 
 :: ============================================================================
-:: SERVICE CONTROLS
+:: SERVICES CONTROL
 :: ============================================================================
 
 :DISABLE_UPDATE
@@ -1836,16 +2437,17 @@ echo   ^|                                                                       
 echo   ^|   DISABLE WINDOWS UPDATE                                                  ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-echo    [!] WARNING: Disabling Windows Update can leave your system vulnerable.
+echo    [!] WARNING: This will disable Windows Update service.
+echo    [!] Your system will NOT receive security updates!
 echo.
 set /p confirm="   Are you sure? (Y/N): "
 if /i "%confirm%" NEQ "Y" goto MENU
 echo.
-echo    [*] Disabling Windows Update service...
+echo    [*] Disabling Windows Update...
 sc config wuauserv start= disabled >nul 2>&1
 net stop wuauserv >nul 2>&1
-sc config UsoSvc start= disabled >nul 2>&1
-net stop UsoSvc >nul 2>&1
+sc config bits start= disabled >nul 2>&1
+net stop bits >nul 2>&1
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" /v NoAutoUpdate /t REG_DWORD /d 1 /f >nul
 echo.
 echo    [+] Windows Update disabled!
@@ -1861,12 +2463,12 @@ echo   ^|                                                                       
 echo   ^|   ENABLE WINDOWS UPDATE                                                   ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-echo    [*] Enabling Windows Update service...
-sc config wuauserv start= auto >nul 2>&1
-net start wuauserv >nul 2>&1
-sc config UsoSvc start= auto >nul 2>&1
-net start UsoSvc >nul 2>&1
+echo    [*] Enabling Windows Update...
+sc config wuauserv start= demand >nul 2>&1
+sc config bits start= demand >nul 2>&1
 reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" /v NoAutoUpdate /f >nul 2>&1
+net start wuauserv >nul 2>&1
+net start bits >nul 2>&1
 echo.
 echo    [+] Windows Update enabled!
 echo.
@@ -1881,19 +2483,16 @@ echo   ^|                                                                       
 echo   ^|   DISABLE TELEMETRY                                                       ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-echo    [!] WARNING: This will disable telemetry data collection.
-echo.
-set /p confirm="   Are you sure? (Y/N): "
-if /i "%confirm%" NEQ "Y" goto MENU
-echo.
+echo    [*] Disabling Telemetry...
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection" /v AllowTelemetry /t REG_DWORD /d 0 /f >nul
 reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection" /v AllowTelemetry /t REG_DWORD /d 0 /f >nul
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Privacy" /v TailoredExperiencesWithDiagnosticDataEnabled /t REG_DWORD /d 0 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\AppCompat" /v AITEnable /t REG_DWORD /d 0 /f >nul
 sc config DiagTrack start= disabled >nul 2>&1
-sc config dmwappushservice start= disabled >nul 2>&1
 net stop DiagTrack >nul 2>&1
+sc config dmwappushservice start= disabled >nul 2>&1
 net stop dmwappushservice >nul 2>&1
+schtasks /change /tn "\Microsoft\Windows\Application Experience\Microsoft Compatibility Appraiser" /disable >nul 2>&1
+schtasks /change /tn "\Microsoft\Windows\Customer Experience Improvement Program\Consolidator" /disable >nul 2>&1
+schtasks /change /tn "\Microsoft\Windows\Customer Experience Improvement Program\UsbCeip" /disable >nul 2>&1
 echo.
 echo    [+] Telemetry disabled!
 echo.
@@ -1982,21 +2581,11 @@ echo    [*] Disabling Windows Defender policies...
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableAntiSpyware /t REG_DWORD /d 1 /f >nul
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableRealtimeMonitoring /t REG_DWORD /d 1 /f >nul
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableAntiVirus /t REG_DWORD /d 1 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableSpecialRunningModes /t REG_DWORD /d 1 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableRoutinelyTakingAction /t REG_DWORD /d 1 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v ServiceKeepAlive /t REG_DWORD /d 0 /f >nul
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableRealtimeMonitoring /t REG_DWORD /d 1 /f >nul
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableBehaviorMonitoring /t REG_DWORD /d 1 /f >nul
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableOnAccessProtection /t REG_DWORD /d 1 /f >nul
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableScanOnRealtimeEnable /t REG_DWORD /d 1 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableIOAVProtection /t REG_DWORD /d 1 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\SmartScreen" /v ConfigureAppInstallControlEnabled /t REG_DWORD /d 0 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet" /v DisableBlockAtFirstSeen /t REG_DWORD /d 1 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet" /v SubmitSamplesConsent /t REG_DWORD /d 2 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet" /v SpynetReporting /t REG_DWORD /d 0 /f >nul
-reg add "HKLM\SOFTWARE\Microsoft\Windows Defender\Features" /v TamperProtection /t REG_DWORD /d 0 /f >nul
 reg add "HKLM\SOFTWARE\Microsoft\Windows Defender" /v DisableAntiSpyware /t REG_DWORD /d 1 /f >nul
-reg add "HKLM\SOFTWARE\Microsoft\Windows Defender" /v DisableAntiVirus /t REG_DWORD /d 1 /f >nul
 echo.
 echo    [+] Windows Defender policies set to disable!
 echo    [!] Note: Full effect may require restart and disabling Tamper Protection manually.
@@ -2042,10 +2631,8 @@ reg add "HKLM\SOFTWARE\Policies\Microsoft\Edge" /v BrowserSignin /t REG_DWORD /d
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Edge" /v StartupBoostEnabled /t REG_DWORD /d 0 /f >nul
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Edge" /v BackgroundModeEnabled /t REG_DWORD /d 0 /f >nul
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Edge" /v ComponentUpdatesEnabled /t REG_DWORD /d 0 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Edge" /v MAUEnabled /t REG_DWORD /d 0 /f >nul
 reg add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v AutoUpdateCheckPeriodMinutes /t REG_DWORD /d 0 /f >nul
 reg add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v UpdateDefault /t REG_DWORD /d 0 /f >nul
-reg add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v UpdatePolicy /t REG_DWORD /d 0 /f >nul
 echo.
 echo    [+] Edge auto-updates disabled!
 echo.
@@ -2238,22 +2825,57 @@ echo   ^|                                                                       
 echo   ^|   SAVED WIFI PASSWORDS                                                    ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-for /f "tokens=2 delims=:" %%a in ('netsh wlan show profiles ^| findstr "Profile"') do (
-    set "ssid=%%a"
-    call :SHOWPASS
+echo    [*] Retrieving saved WiFi networks...
+echo.
+
+:: Create temp file for profiles
+set "TEMP_PROFILES=%TEMP%\wifi_profiles.txt"
+netsh wlan show profiles > "%TEMP_PROFILES%" 2>nul
+
+:: Check if WLAN service is available
+findstr /C:"is not running" "%TEMP_PROFILES%" >nul 2>&1
+if !errorlevel!==0 (
+    echo    [!] WLAN AutoConfig service is not running.
+    echo    [*] Attempting to start the service...
+    net start WlanSvc >nul 2>&1
+    timeout /t 2 >nul
+    netsh wlan show profiles > "%TEMP_PROFILES%" 2>nul
 )
+
+:: Check for no profiles
+findstr /C:"There is no wireless interface" "%TEMP_PROFILES%" >nul 2>&1
+if !errorlevel!==0 (
+    echo    [!] No wireless interface found on this computer.
+    del "%TEMP_PROFILES%" >nul 2>&1
+    echo.
+    pause
+    goto MENU
+)
+
+:: Extract and show passwords
+set "found=0"
+for /f "tokens=2 delims=:" %%a in ('findstr /C:"All User Profile" "%TEMP_PROFILES%" 2^>nul') do (
+    set "ssid=%%a"
+    set "ssid=!ssid:~1!"
+    if not "!ssid!"=="" (
+        set "found=1"
+        echo    --------------------------------------------
+        echo    Network: !ssid!
+        for /f "tokens=2 delims=:" %%b in ('netsh wlan show profile name^="!ssid!" key^=clear 2^>nul ^| findstr /C:"Key Content"') do (
+            echo    Password:%%b
+        )
+        echo.
+    )
+)
+
+if "!found!"=="0" (
+    echo    [!] No saved WiFi networks found.
+)
+
+del "%TEMP_PROFILES%" >nul 2>&1
 echo.
 pause
 goto MENU
-
-:SHOWPASS
-set ssid=%ssid:~1%
-for /f "tokens=2 delims=:" %%b in ('netsh wlan show profile name^="%ssid%" key^=clear ^| findstr "Key Content"') do (
-    echo    Network: %ssid%
-    echo    Password:%%b
-    echo.
-)
-exit /b
 
 :RESET_HOSTS
 cls
@@ -2296,42 +2918,44 @@ echo   ^|                                                                       
 echo   ^|   POWER PLAN                                                              ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-echo    Select Power Plan:
+echo    Select power plan:
 echo.
-echo     [1] High Performance
-echo     [2] Balanced (Default)
-echo     [3] Power Saver
-echo     [4] Ultimate Performance (Creates if not exists)
+echo     [1] Power Saver (Maximize battery life)
+echo     [2] Balanced (Default - Balance performance and power)
+echo     [3] High Performance (Maximize performance)
+echo     [4] Ultimate Performance (Windows 10/11 Pro only)
 echo     [0] Back to Main Menu
+echo.
+powercfg /list
 echo.
 set /p ppchoice="   Enter your choice [0-4]: "
 if "%ppchoice%"=="0" goto MENU
 if "%ppchoice%"=="1" (
     echo.
-    echo    [*] Activating High Performance...
-    powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
-    echo    [+] High Performance activated!
-)
-if "%ppchoice%"=="2" (
-    echo.
-    echo    [*] Activating Balanced...
-    powercfg /setactive 381b4222-f694-41f0-9685-ff5bb260df2e
-    echo    [+] Balanced activated!
-)
-if "%ppchoice%"=="3" (
-    echo.
-    echo    [*] Activating Power Saver...
+    echo    [*] Activating Power Saver plan...
     powercfg /setactive a1841308-3541-4fab-bc81-f71556f20b4a
     echo    [+] Power Saver activated!
 )
+if "%ppchoice%"=="2" (
+    echo.
+    echo    [*] Activating Balanced plan...
+    powercfg /setactive 381b4222-f694-41f0-9685-ff5bb260df2e
+    echo    [+] Balanced plan activated!
+)
+if "%ppchoice%"=="3" (
+    echo.
+    echo    [*] Activating High Performance plan...
+    powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
+    echo    [+] High Performance activated!
+)
 if "%ppchoice%"=="4" (
     echo.
-    echo    [*] Creating/Activating Ultimate Performance...
-    powercfg /duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 >nul 2>&1
+    echo    [*] Creating and activating Ultimate Performance plan...
+    powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 >nul 2>&1
     for /f "tokens=4" %%a in ('powercfg /list ^| findstr "Ultimate"') do (
         powercfg /setactive %%a
     )
-    echo    [+] Ultimate Performance activated!
+    echo    [+] Ultimate Performance activated (if supported)!
 )
 echo.
 pause
@@ -2345,15 +2969,14 @@ echo   ^|                                                                       
 echo   ^|   DISABLE VISUAL EFFECTS                                                  ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-echo    [*] Disabling Visual Effects for best performance...
+echo    [*] Disabling Visual Effects for better performance...
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" /v VisualFXSetting /t REG_DWORD /d 2 /f >nul
 reg add "HKCU\Control Panel\Desktop" /v UserPreferencesMask /t REG_BINARY /d 9012038010000000 /f >nul
 reg add "HKCU\Control Panel\Desktop\WindowMetrics" /v MinAnimate /t REG_SZ /d 0 /f >nul
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ListviewAlphaSelect /t REG_DWORD /d 0 /f >nul
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarAnimations /t REG_DWORD /d 0 /f >nul
 reg add "HKCU\Software\Microsoft\Windows\DWM" /v EnableAeroPeek /t REG_DWORD /d 0 /f >nul
 echo.
-echo    [+] Visual effects disabled for performance!
+echo    [+] Visual effects disabled for better performance!
 echo.
 pause
 goto MENU
@@ -2368,9 +2991,8 @@ echo   ^|_______________________________________________________________________
 echo.
 echo    [*] Enabling Visual Effects...
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" /v VisualFXSetting /t REG_DWORD /d 1 /f >nul
-reg add "HKCU\Control Panel\Desktop" /v UserPreferencesMask /t REG_BINARY /d 9e3e078012000000 /f >nul
+reg add "HKCU\Control Panel\Desktop" /v UserPreferencesMask /t REG_BINARY /d 9E3E078012000000 /f >nul
 reg add "HKCU\Control Panel\Desktop\WindowMetrics" /v MinAnimate /t REG_SZ /d 1 /f >nul
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ListviewAlphaSelect /t REG_DWORD /d 1 /f >nul
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarAnimations /t REG_DWORD /d 1 /f >nul
 reg add "HKCU\Software\Microsoft\Windows\DWM" /v EnableAeroPeek /t REG_DWORD /d 1 /f >nul
 echo.
@@ -2387,13 +3009,13 @@ echo   ^|                                                                       
 echo   ^|   DISABLE GAME BAR/DVR                                                    ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-echo    [*] Disabling Xbox Game Bar and DVR...
+echo    [*] Disabling Game Bar and DVR...
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\GameDVR" /v AppCaptureEnabled /t REG_DWORD /d 0 /f >nul
 reg add "HKCU\System\GameConfigStore" /v GameDVR_Enabled /t REG_DWORD /d 0 /f >nul
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\GameDVR" /v AllowGameDVR /t REG_DWORD /d 0 /f >nul
 reg add "HKCU\Software\Microsoft\GameBar" /v UseNexusForGameBarEnabled /t REG_DWORD /d 0 /f >nul
 echo.
-echo    [+] Xbox Game Bar and DVR disabled!
+echo    [+] Game Bar and DVR disabled!
 echo.
 pause
 goto MENU
@@ -2406,15 +3028,12 @@ echo   ^|                                                                       
 echo   ^|   DISABLE SEARCH INDEXING                                                 ^|
 echo   ^|___________________________________________________________________________^|
 echo.
-echo    [!] WARNING: This will disable search indexing. Search may be slower.
-echo.
-set /p confirm="   Are you sure? (Y/N): "
-if /i "%confirm%" NEQ "Y" goto MENU
-echo.
+echo    [*] Disabling Windows Search Indexing...
 sc config WSearch start= disabled >nul 2>&1
 net stop WSearch >nul 2>&1
 echo.
-echo    [+] Search indexing disabled!
+echo    [+] Search Indexing disabled!
+echo    [!] Note: This will slow down file searches but improve disk performance.
 echo.
 pause
 goto MENU
@@ -2431,7 +3050,7 @@ echo    [*] Enabling Windows Search Indexing...
 sc config WSearch start= auto >nul 2>&1
 net start WSearch >nul 2>&1
 echo.
-echo    [+] Search indexing enabled!
+echo    [+] Search Indexing enabled!
 echo.
 pause
 goto MENU
@@ -2445,9 +3064,9 @@ echo   ^|   DISABLE HIBERNATION                                                 
 echo   ^|___________________________________________________________________________^|
 echo.
 echo    [*] Disabling Hibernation...
-powercfg /h off
+powercfg /hibernate off
 echo.
-echo    [+] Hibernation disabled! Disk space recovered.
+echo    [+] Hibernation disabled! This frees up disk space equal to your RAM.
 echo.
 pause
 goto MENU
@@ -2461,7 +3080,7 @@ echo   ^|   ENABLE HIBERNATION                                                  
 echo   ^|___________________________________________________________________________^|
 echo.
 echo    [*] Enabling Hibernation...
-powercfg /h on
+powercfg /hibernate on
 echo.
 echo    [+] Hibernation enabled!
 echo.
@@ -2469,7 +3088,7 @@ pause
 goto MENU
 
 :: ============================================================================
-:: SYSTEM REPAIR
+:: REPAIR TOOLS
 :: ============================================================================
 
 :RUN_SFC
@@ -2481,11 +3100,11 @@ echo   ^|   SYSTEM FILE CHECKER (SFC)                                           
 echo   ^|___________________________________________________________________________^|
 echo.
 echo    [*] Running System File Checker...
-echo    [*] This may take several minutes. Please wait...
+echo    [*] This may take several minutes...
 echo.
 sfc /scannow
 echo.
-echo    [+] System File Checker complete!
+echo    [+] SFC scan complete!
 echo.
 pause
 goto MENU
@@ -2495,7 +3114,7 @@ cls
 echo.
 echo    ___________________________________________________________________________
 echo   ^|                                                                           ^|
-echo   ^|   DISM HEALTH TOOLS                                                       ^|
+echo   ^|   DISM HEALTH RESTORE                                                     ^|
 echo   ^|___________________________________________________________________________^|
 echo.
 echo     [1] Check Health (Quick scan)
@@ -2657,47 +3276,6 @@ echo.
 echo    [+] Windows Store repair attempted!
 echo.
 pause
-goto MENU
-
-:: ============================================================================
-:: QUICK LAUNCHERS
-:: ============================================================================
-
-:DEVICE_MANAGER
-cls
-echo    [*] Opening Device Manager...
-start devmgmt.msc
-goto MENU
-
-:CONTROL_PANEL
-cls
-echo    [*] Opening Control Panel...
-start control
-goto MENU
-
-:SERVICES
-cls
-echo    [*] Opening Services...
-start services.msc
-goto MENU
-
-:TASK_MANAGER
-cls
-echo    [*] Opening Task Manager...
-start taskmgr
-goto MENU
-
-:REGEDIT
-cls
-echo    [*] Opening Registry Editor...
-start regedit
-goto MENU
-
-:TERMINAL
-cls
-echo    [*] Opening Windows Terminal...
-start wt
-if errorlevel 1 start cmd
 goto MENU
 
 :: ============================================================================
