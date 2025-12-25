@@ -8,7 +8,7 @@
   </pre>
 </p>
 
-<h1 align="center">Sychic System Toolkit v2.0</h1>
+<h1 align="center">Sychic System Toolkit</h1>
 
 <p align="center">
   <b>A powerful all-in-one Windows system utility toolkit</b><br>
